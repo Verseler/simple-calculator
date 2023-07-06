@@ -1,7 +1,9 @@
 const OPERATORS = ['÷', '×', '+', '−'];
+const WHITESPACE = ' ';
 const DEFAULT_VALUE = '0';
+const NO_VALUE = '';
 const resultOutput = document.getElementById('result'); //result displayed in the GUI
-let result = ''; //result variable during js computation
+let result = NO_VALUE; //result variable during js computation
 
 
 //set result when clicked a button in the calculator GUI
@@ -11,10 +13,10 @@ Array.from(buttons).forEach(button => {
         let buttonValue = button.innerText;
 
         if (buttonValue === 'CLEAR') {
-            result = clearAllResult(result);
+            result = (result.innerText = DEFAULT_VALUE);
         }
         else if (buttonValue === 'DELETE') {
-            result = popResult(result);
+            result = (result.slice(-1) === " ") ? result.slice(0, -3) : result.slice(0, -1);
         }
         else {
             //else the button value is either number or an operator
@@ -27,21 +29,17 @@ Array.from(buttons).forEach(button => {
 });
 
 
-//delete the last character in the result
-function popResult(oldResult) {
-    return (oldResult.slice(-1) === " ") ? oldResult.slice(0, -3) : oldResult.slice(0, -1);
-}
-
-//delete all characters in the result
-function clearAllResult(result) {
-    return result.innerText = DEFAULT_VALUE;
-}
-
 //add the button value to the result
 function addToTheResult(value, oldResult) {
-    //remove the defaul value zero when enter a number or operator
-    if(oldResult === '0') {
-        oldResult = "";
+    //if the current value is an operator and the previous value is also an operator 
+    //except minus operator because it can use as a negative sign
+    //prevent adding two or more operator in a series in the result output      
+    if(value !== '−' && OPERATORS.includes(value) && oldResult.slice(-1) === WHITESPACE) {
+        return oldResult;
+    }
+    //remove the default value zero when enter a number or operator
+    if(oldResult === '0' || oldResult === 'INVALID' || oldResult === 'NaN' || oldResult === 'Infinity') {
+        oldResult = NO_VALUE;
     }
 
     //if the value is an operator add a space around the operator
@@ -53,24 +51,16 @@ function updateResult(newResult) {
     result = newResult;
     //update result output that is displayed in the calculator GUI
     resultOutput.innerText = result;
-
-    //adjust the result output size depend on its size
-    let resultSize = resultOutput.innerText.length;
-    if(resultSize >= 15) {
-        resultOutput.style.fontSize = '1.5rem';
-        resultOutput.style.bottom = '5px';
-    }
-    else {
-        resultOutput.style.fontSize = '2.5rem';
-        resultOutput.style.bottom = '20px';
-    }
 }
+
+
 
 
 /* find the FIRST set of numbers that will be computed based on bidmas rule */
 function getEqual() {
+    let expressionIsValid = true; 
     //remove spaces in the result then add all characters to CURRENT_RESULT array
-    CURRENT_RESULT = result.split(' ');
+    CURRENT_RESULT = result.split(WHITESPACE);
     console.log(CURRENT_RESULT); //for debug purposes
 
     //first loop will execute the inner loop based on the current operator
@@ -80,49 +70,52 @@ function getEqual() {
         //if not proceed to the next operator if yes compute that set of numbers with the current operator
         while (CURRENT_RESULT.includes(operator)) {
             //get the set of numbers to be computed based on the currentOperatorIndex
-            let currentSetOfExpressionOperatorIndex = CURRENT_RESULT.indexOf(operator);
-            compute(currentSetOfExpressionOperatorIndex, CURRENT_RESULT);
+            let operatorIndex = CURRENT_RESULT.indexOf(operator);
+            let currentFirstNum = Number(CURRENT_RESULT[operatorIndex - 1]);
+            let currentOperator = CURRENT_RESULT[operatorIndex];
+            let currentSecondNum = Number(CURRENT_RESULT[operatorIndex + 1]);
+        
+            //verify if set of numbers and operator are valid
+            if(!OPERATORS.includes(currentOperator) && 
+                !currentFirstNum % 1 < 1 && !currentFirstNum % 1 > -1 &&
+                !currentSecondNum % 1 < 1 && !currentSecondNum % 1 > -1) {
+                expressionIsValid = false;
+                break;
+            }
+            else {
+                //update the CURRENT_RESULT with computed results of the selected set of numbers
+                let operationResult = calculate(currentFirstNum, currentOperator, currentSecondNum);
+                CURRENT_RESULT.splice(operatorIndex - 1, 3, `${operationResult}`);
+            }
         }
     });
 
     //update all expression the result is computed display the totalResult
-    let totalResult = CURRENT_RESULT[0].toString();
+    let totalResult;
+    if(!expressionIsValid) {
+       totalResult = 'INVALID';
+    }
+    else {
+        totalResult = CURRENT_RESULT[0].toString();
+    }
     updateResult(totalResult);
     console.log(CURRENT_RESULT); //for debugging purposes
 }
 
-//set the first set of numbers to be computed based on bidmas rule
-function compute(operatorIndex) {
-    const CURRENT_SET_OF_EXPRESSION = [];
-    let setOfExpressionStartingIndex = operatorIndex - 1;
-    let setOfExpressionEndingIndex = operatorIndex + 2;
-
-    //Set the selected set of numbers that to be computed
-    for (let indx = setOfExpressionStartingIndex; indx !== setOfExpressionEndingIndex; indx++) {
-        CURRENT_SET_OF_EXPRESSION.push(CURRENT_RESULT[indx]);
-    }
-    let [firstNum, operator, secondNum] = CURRENT_SET_OF_EXPRESSION;
-    //calculate the first and second number with its operator of the current set of expression
-    let operationResult = calculate(firstNum, operator, secondNum);
-    //update the CURRENT_RESULT with computed results of the selected set of numbers
-    CURRENT_RESULT.splice(setOfExpressionStartingIndex, 3, `${operationResult}`);
-}
 
 
 /* caculate two numbers based on the given operator */
-function calculate(firstNum, operator, secondNum) {
-    firstNum = Number(firstNum);
-    secondNum = Number(secondNum);
+function calculate(currentFirstNum, operator, currentSecondNum) {
 
     switch (operator) {
         case '÷':
-            return firstNum / secondNum;
+            return currentFirstNum / currentSecondNum;
         case '×':
-            return firstNum * secondNum;
+            return currentFirstNum * currentSecondNum;
         case '+':
-            return firstNum + secondNum;
+            return currentFirstNum + currentSecondNum;
         case '−':
-            return firstNum - secondNum;
+            return currentFirstNum - currentSecondNum;
         default:
             console.log('invalid operator');
     }
